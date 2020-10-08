@@ -1,0 +1,98 @@
+version: '3'
+
+networks:
+ laravel_openinfra:
+
+services:
+ openinfra:
+  image: nginx:stable-alpine
+  container_name: nginx_laravel_openinfra
+  ports:
+   - "8080:80"
+  volumes:
+   - ./src:/var/www/html
+   - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+  depends_on:
+   - php
+   - mysql
+  networks:
+   - laravel_openinfra
+
+ mysql:
+  image: mysql:5.7.29
+  container_name: mysql_laravel_openinfra
+  restart: unless-stopped
+  tty: true
+  ports:
+   - "3306:3306"
+  volumes:
+   - ./mysql:/var/lib/mysql
+  environment:
+   MYSQL_DATABASE: ${DB_DATABASE}
+   MYSQL_USER: ${DB_USERNAME}
+   MYSQL_PASSWORD: ${DB_PASSWORD}
+   MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+   SERVICE_TAGS: dev
+   SERVICE_NAME: mysql
+  networks:
+   - laravel_openinfra
+
+ php:
+  build:
+   context: .
+   dockerfile: dockerfile
+  container_name: php_laravel_openinfra
+  volumes:
+   - ./src:/var/www/html
+  ports:
+   - "9000:9000"
+  networks:
+   - laravel_openinfra
+
+ phpunit:
+  build:
+   context: .
+   dockerfile: dockerfile
+  container_name: phpunit_laravel_openinfra
+  user: 1000:1000
+  volumes:
+   - ./src:/var/www/html
+  working_dir: /var/www/html
+  entrypoint: ['/var/www/html/vendor/bin/phpunit']
+  depends_on:
+   - php
+  networks:
+  - laravel_openinfra
+
+ composer:
+  image: composer:latest
+  container_name: composer_laravel_openinfra
+  volumes:
+   - ./src:/var/www/html
+  working_dir: /var/www/html
+  depends_on:
+   - php
+  networks:
+   - laravel_openinfra
+
+ npm:
+  image: node:13.7
+  container_name: npm_laravel_openinfra
+  volumes:
+   - ./src:/var/www/html
+  working_dir: /var/www/html
+  entrypoint: ['npm']
+
+ artisan:
+  build:
+   context: .
+   dockerfile: dockerfile
+  container_name: artisan_laravel_openinfra
+  volumes:
+   - ./src:/var/www/html
+  depends_on:
+   - mysql
+  working_dir: /var/www/html
+  entrypoint: ['php', '/var/www/html/artisan']
+  networks:
+   - laravel_openinfra
